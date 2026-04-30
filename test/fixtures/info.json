@@ -1,0 +1,17 @@
+{
+  "version": "0.13.0",
+  "username": "demo-user",
+  "ports": {
+    "ssh": 2222,
+    "http": 443
+  },
+  "external_hosts": {
+    "ssh": "warpgate.example.com",
+    "http": "warpgate.example.com"
+  },
+  "minimize_password_login": false,
+  "authorized_via_ticket": false,
+  "authorized_via_sso_with_single_logout": false,
+  "own_credential_management_allowed": true,
+  "has_ldap": false
+}

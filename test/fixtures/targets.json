@@ -1,0 +1,107 @@
+[
+  {
+    "name": "prod-web-01",
+    "description": "Production web server (Frankfurt)",
+    "kind": "Ssh",
+    "external_host": "10.0.1.10",
+    "group": {
+      "id": "11111111-1111-1111-1111-111111111111",
+      "name": "Production",
+      "color": "Danger"
+    }
+  },
+  {
+    "name": "prod-web-02",
+    "description": "Production web server (Hetzner)",
+    "kind": "Ssh",
+    "external_host": "10.0.1.11",
+    "group": {
+      "id": "11111111-1111-1111-1111-111111111111",
+      "name": "Production",
+      "color": "Danger"
+    }
+  },
+  {
+    "name": "prod-db-primary",
+    "description": "PostgreSQL primary",
+    "kind": "Ssh",
+    "external_host": "10.0.2.10",
+    "group": {
+      "id": "11111111-1111-1111-1111-111111111111",
+      "name": "Production",
+      "color": "Danger"
+    }
+  },
+  {
+    "name": "staging-web",
+    "description": "Staging environment web server",
+    "kind": "Ssh",
+    "external_host": "10.1.1.10",
+    "group": {
+      "id": "22222222-2222-2222-2222-222222222222",
+      "name": "Staging",
+      "color": "Warning"
+    }
+  },
+  {
+    "name": "staging-db",
+    "description": "Staging PostgreSQL",
+    "kind": "Ssh",
+    "external_host": "10.1.2.10",
+    "group": {
+      "id": "22222222-2222-2222-2222-222222222222",
+      "name": "Staging",
+      "color": "Warning"
+    }
+  },
+  {
+    "name": "dev-sandbox",
+    "description": "Developer sandbox VM",
+    "kind": "Ssh",
+    "external_host": "10.2.1.10",
+    "group": {
+      "id": "33333333-3333-3333-3333-333333333333",
+      "name": "Development",
+      "color": "Info"
+    }
+  },
+  {
+    "name": "ci-runner",
+    "description": "GitHub Actions self-hosted runner",
+    "kind": "Ssh",
+    "external_host": "10.2.5.10",
+    "group": {
+      "id": "33333333-3333-3333-3333-333333333333",
+      "name": "Development",
+      "color": "Info"
+    }
+  },
+  {
+    "name": "edge-router",
+    "description": "Cloudflare-Tunnel Endpoint",
+    "kind": "Ssh",
+    "external_host": "10.3.1.1"
+  },
+  {
+    "name": "monitoring",
+    "description": "Grafana + Prometheus host",
+    "kind": "Ssh",
+    "external_host": "10.4.1.10",
+    "group": {
+      "id": "44444444-4444-4444-4444-444444444444",
+      "name": "Infrastructure",
+      "color": "Success"
+    }
+  },
+  {
+    "name": "warpgate-admin",
+    "description": "Warpgate admin web UI",
+    "kind": "Http",
+    "external_host": "warpgate-admin.example",
+    "group": {
+      "id": "44444444-4444-4444-4444-444444444444",
+      "name": "Infrastructure",
+      "color": "Success"
+    }
+  }
+]

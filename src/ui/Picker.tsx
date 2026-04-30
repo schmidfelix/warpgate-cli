@@ -1,0 +1,189 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { Box, Text, useInput } from "ink";
+import { scoreTarget } from "../fuzzy.ts";
+import { inkColorFor } from "../colors.ts";
+import type { BootstrapColor, TargetSnapshot } from "../types.ts";
+
+interface PickerProps {
+  targets: TargetSnapshot[];
+  onSelect: (target: TargetSnapshot) => void;
+  onCancel: () => void;
+}
+
+type Row =
+  | { type: "header"; groupName: string; color?: BootstrapColor }
+  | { type: "item"; target: TargetSnapshot; groupColor?: BootstrapColor };
+
+const UNGROUPED_KEY = "__ungrouped__";
+const UNGROUPED_LABEL = "Ungruppiert";
+
+export function Picker({ targets, onSelect, onCancel }: PickerProps) {
+  const [query, setQuery] = useState("");
+  const [selectedItemIdx, setSelectedItemIdx] = useState(0);
+
+  const { rows, itemRowIndices } = useMemo(() => {
+    const scored = targets
+      .map((t) => ({
+        target: t,
+        score: scoreTarget(query, [t.name, t.description, t.group?.name]),
+      }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    const groups = new Map<
+      string,
+      { name: string; color?: BootstrapColor; items: TargetSnapshot[] }
+    >();
+    for (const { target } of scored) {
+      const key = target.group?.id ?? UNGROUPED_KEY;
+      let bucket = groups.get(key);
+      if (!bucket) {
+        bucket = {
+          name: target.group?.name ?? UNGROUPED_LABEL,
+          color: target.group?.color,
+          items: [],
+        };
+        groups.set(key, bucket);
+      }
+      bucket.items.push(target);
+    }
+
+    const sortedGroups = [...groups.values()].sort((a, b) => {
+      if (a.name === UNGROUPED_LABEL) return 1;
+      if (b.name === UNGROUPED_LABEL) return -1;
+      return a.name.localeCompare(b.name);
+    });
+
+    const rows: Row[] = [];
+    const itemRowIndices: number[] = [];
+    for (const group of sortedGroups) {
+      rows.push({ type: "header", groupName: group.name, color: group.color });
+      for (const item of group.items) {
+        itemRowIndices.push(rows.length);
+        rows.push({ type: "item", target: item, groupColor: group.color });
+      }
+    }
+    return { rows, itemRowIndices };
+  }, [targets, query]);
+
+  useEffect(() => {
+    setSelectedItemIdx(0);
+  }, [query]);
+
+  const itemCount = itemRowIndices.length;
+  const cappedItemIdx = itemCount > 0 ? Math.min(selectedItemIdx, itemCount - 1) : -1;
+  const selectedRowIdx = cappedItemIdx >= 0 ? itemRowIndices[cappedItemIdx]! : -1;
+
+  useInput((input, key) => {
+    if (key.escape) {
+      onCancel();
+      return;
+    }
+    if (key.ctrl && input === "c") {
+      onCancel();
+      return;
+    }
+    if (key.upArrow || (key.ctrl && input === "p")) {
+      setSelectedItemIdx((i) => Math.max(0, i - 1));
+      return;
+    }
+    if (key.downArrow || (key.ctrl && input === "n")) {
+      setSelectedItemIdx((i) => Math.min(itemCount - 1, i + 1));
+      return;
+    }
+    if (key.return) {
+      if (cappedItemIdx >= 0) {
+        const row = rows[selectedRowIdx];
+        if (row && row.type === "item") onSelect(row.target);
+      }
+      return;
+    }
+    if (key.backspace || key.delete) {
+      setQuery((q) => q.slice(0, -1));
+      return;
+    }
+    if (key.ctrl && input === "u") {
+      setQuery("");
+      return;
+    }
+    if (key.ctrl || key.meta) return;
+    if (input && input.length > 0 && input >= " ") {
+      setQuery((q) => q + input);
+    }
+  });
+
+  const totalRows = process.stdout.rows ?? 24;
+  const headerLines = 3;
+  const footerLines = 2;
+  const visibleHeight = Math.max(6, totalRows - headerLines - footerLines);
+
+  let windowStart = 0;
+  if (rows.length > visibleHeight && selectedRowIdx >= 0) {
+    if (selectedRowIdx < windowStart + 2) {
+      windowStart = Math.max(0, selectedRowIdx - 2);
+    } else if (selectedRowIdx >= windowStart + visibleHeight - 2) {
+      windowStart = Math.min(rows.length - visibleHeight, selectedRowIdx - visibleHeight + 3);
+    }
+  }
+  const windowEnd = Math.min(rows.length, windowStart + visibleHeight);
+  const visibleRows = rows.slice(windowStart, windowEnd);
+
+  return (
+    <Box flexDirection="column">
+      <Box>
+        <Text color="cyan">› </Text>
+        <Text>{query}</Text>
+        <Text color="gray">{query.length === 0 ? "Suche…" : ""}</Text>
+        <Text>█</Text>
+      </Box>
+      <Box>
+        <Text color="gray">
+          {itemCount} Target{itemCount === 1 ? "" : "s"} · ↑↓ navigieren · Enter verbinden · Esc abbrechen
+        </Text>
+      </Box>
+
+      <Box flexDirection="column" marginTop={1}>
+        {rows.length === 0 ? (
+          <Text color="gray" italic>Keine Targets gefunden.</Text>
+        ) : (
+          visibleRows.map((row, i) => {
+            const absIdx = windowStart + i;
+            return <RowView key={absIdx} row={row} selected={absIdx === selectedRowIdx} />;
+          })
+        )}
+      </Box>
+
+      {windowEnd < rows.length && (
+        <Box>
+          <Text color="gray">… {rows.length - windowEnd} weitere</Text>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+function RowView({ row, selected }: { row: Row; selected: boolean }) {
+  if (row.type === "header") {
+    return (
+      <Box>
+        <Text color={inkColorFor(row.color)} bold>
+          ▎{row.groupName}
+        </Text>
+      </Box>
+    );
+  }
+  const t = row.target;
+  return (
+    <Box>
+      <Text color={selected ? "cyan" : undefined} bold={selected}>
+        {selected ? "❯ " : "  "}
+      </Text>
+      <Text color={selected ? "cyan" : undefined} bold={selected}>
+        {t.name}
+      </Text>
+      {t.description && (
+        <Text color="gray">{"  " + t.description}</Text>
+      )}
+    </Box>
+  );
+}
