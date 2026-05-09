@@ -63,7 +63,7 @@ export function DbWizard({
   const Header = () => (
     <Box flexDirection="column">
       <Text bold color="cyan">
-        Neue Datenbank für {targetName}
+        New database for {targetName}
       </Text>
     </Box>
   );
@@ -82,7 +82,7 @@ export function DbWizard({
               if (!t) {
                 setPhase({
                   kind: "error",
-                  message: "Label darf nicht leer sein.",
+                  message: "Label must not be empty.",
                   back: { kind: "label" },
                 });
                 return;
@@ -93,7 +93,7 @@ export function DbWizard({
           />
         </Box>
         <Box marginTop={1}>
-          <Text color="gray">Anzeigename im Picker. Esc zum Abbrechen.</Text>
+          <Text color="gray">Display name in the picker. Press Esc to cancel.</Text>
         </Box>
       </Box>
     );
@@ -108,13 +108,13 @@ export function DbWizard({
           <TextInput
             value={hostValue}
             onChange={setHostValue}
-            placeholder="z.B. dbstage"
+            placeholder="e.g. dbstage"
             onSubmit={(v) => {
               const t = v.trim();
               if (!t) {
                 setPhase({
                   kind: "error",
-                  message: "DB-Host darf nicht leer sein.",
+                  message: "DB host must not be empty.",
                   back: { kind: "host", label: phase.label },
                 });
                 return;
@@ -124,7 +124,7 @@ export function DbWizard({
           />
         </Box>
         <Box marginTop={1}>
-          <Text color="gray">Wird auf dem SSH-Target aufgelöst (z.B. dbstage, localhost, 10.0.0.5).</Text>
+          <Text color="gray">Resolved on the SSH target (e.g. dbstage, localhost, 10.0.0.5).</Text>
         </Box>
       </Box>
     );
@@ -144,7 +144,7 @@ export function DbWizard({
               if (!t) {
                 setPhase({
                   kind: "error",
-                  message: "DB-User darf nicht leer sein.",
+                  message: "DB user must not be empty.",
                   back: { kind: "user", label: phase.label, dbHost: phase.dbHost },
                 });
                 return;
@@ -176,7 +176,7 @@ export function DbWizard({
               if (!t) {
                 setPhase({
                   kind: "error",
-                  message: "DB-Name darf nicht leer sein.",
+                  message: "DB name must not be empty.",
                   back: {
                     kind: "name",
                     label: phase.label,
@@ -215,7 +215,7 @@ export function DbWizard({
               if (port !== undefined && (!Number.isInteger(port) || port < 1 || port > 65535)) {
                 setPhase({
                   kind: "error",
-                  message: "Port muss eine Zahl zwischen 1 und 65535 sein.",
+                  message: "Port must be a number between 1 and 65535.",
                   back: {
                     kind: "port",
                     label: phase.label,
@@ -238,7 +238,7 @@ export function DbWizard({
           />
         </Box>
         <Box marginTop={1}>
-          <Text color="gray">Default 3306. Leer lassen für Default.</Text>
+          <Text color="gray">Default is 3306. Leave empty to use the default.</Text>
         </Box>
       </Box>
     );
@@ -249,7 +249,7 @@ export function DbWizard({
       <Box flexDirection="column">
         <Header />
         <Box marginTop={1}>
-          <Text>Passwort: </Text>
+          <Text>Password: </Text>
           <TextInput
             value={pwdValue}
             onChange={setPwdValue}
@@ -258,7 +258,7 @@ export function DbWizard({
               if (!v) {
                 setPhase({
                   kind: "error",
-                  message: "Passwort darf nicht leer sein.",
+                  message: "Password must not be empty.",
                   back: {
                     kind: "password",
                     label: phase.label,
@@ -282,7 +282,7 @@ export function DbWizard({
           />
         </Box>
         <Box marginTop={1}>
-          <Text color="gray">Wird im macOS Keychain gespeichert.</Text>
+          <Text color="gray">Saved in the macOS Keychain.</Text>
         </Box>
       </Box>
     );
@@ -296,7 +296,7 @@ export function DbWizard({
         <Text color="red">✖ {phase.message}</Text>
       </Box>
       <Box marginTop={1}>
-        <Text color="gray">Drücke Enter um es erneut zu versuchen.</Text>
+        <Text color="gray">Press Enter to try again.</Text>
       </Box>
       <ErrorContinueWatcher onContinue={() => setPhase(phase.back)} />
     </Box>

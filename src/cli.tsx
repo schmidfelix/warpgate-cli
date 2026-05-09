@@ -53,52 +53,52 @@ async function main(): Promise<void> {
       process.exit(64);
     /* falls through */
     default:
-      process.stderr.write(`Unbekannter Befehl: ${cmd}\n\n`);
+      process.stderr.write(`Unknown command: ${cmd}\n\n`);
       printHelp();
       process.exit(64);
   }
 }
 
 const NO_DEFAULT_MSG =
-  `warpgate-cli ist ein Helper-Binary, kein direkter Aufruf.
+  `warpgate-cli is a helper binary, not the direct command.
 
-Bitte einmal die Shell-Function installieren:
+Install the shell function once:
 
   warpgate-cli setup-shell
 
-Anschließend in einer neuen Shell:
+Then open a new shell and run:
 
   warpgate
 
-Mehr Optionen: warpgate-cli help
+More options: warpgate-cli help
 `;
 
 function printHelp(): void {
   process.stdout.write(
-    `warpgate-cli — Quick-Access Helper für Warpgate SSH-Targets
+    `warpgate-cli - Quick-access helper for Warpgate SSH targets
 
-Verwendung:
-  warpgate-cli setup-shell [--print]   Wrapper-Function in Shell installieren
-  warpgate-cli pick                    Picker zeigen, gewähltes Command auf stdout
-                                       (wird vom Shell-Wrapper aufgerufen)
-  warpgate-cli login                   API-Token setzen oder erneuern
-  warpgate-cli logout                  API-Token und Config entfernen
-  warpgate-cli user <name>             Warpgate-Username manuell setzen
-  warpgate-cli db                      Datenbank-Connections auflisten
-  warpgate-cli db add [--target NAME]  Neue Datenbank-Connection anlegen
-  warpgate-cli db remove <id|label>    Datenbank-Connection entfernen
-  warpgate-cli db edit <id|label>      Datenbank-Connection bearbeiten
-  warpgate-cli help                    Diese Hilfe anzeigen
+Usage:
+  warpgate-cli setup-shell [--print]   Install the shell wrapper function
+  warpgate-cli pick                    Show the picker and print the selected command
+                                       (called by the shell wrapper)
+  warpgate-cli login                   Set or refresh the API token
+  warpgate-cli logout                  Remove the API token and config
+  warpgate-cli user <name>             Set the Warpgate username manually
+  warpgate-cli db                      List database connections
+  warpgate-cli db add [--target NAME]  Add a database connection
+  warpgate-cli db remove <id|label>    Remove a database connection
+  warpgate-cli db edit <id|label>      Edit a database connection
+  warpgate-cli help                    Show this help
 
-Im Picker:
-  Enter      → SSH-Verbindung
-  Tab / →    → Datenbanken für selektiertes Target
-  Esc        → abbrechen
+In the picker:
+  Enter      -> SSH connection
+  Tab / ->   -> databases for the selected target
+  Esc        -> cancel
 
-Umgebungsvariablen:
-  WARPGATE_MOCK=1                  Lokale Fixtures statt echter API verwenden
+Environment variables:
+  WARPGATE_MOCK=1                  Use local fixtures instead of the real API
   WARPGATE_KEYCHAIN_SERVICE        Token-Keychain-Service (Default: warpgate-cli)
-  WARPGATE_DB_KEYCHAIN_SERVICE     DB-Passwort-Keychain-Service (Default: warpgate-cli-db)
+  WARPGATE_DB_KEYCHAIN_SERVICE     DB password keychain service (Default: warpgate-cli-db)
 `,
   );
 }
@@ -107,12 +107,12 @@ Umgebungsvariablen:
 
 async function runLogout(): Promise<void> {
   await Promise.all([deleteToken(), deleteConfig()]);
-  process.stderr.write("✓ Token aus dem Keychain gelöscht und Config entfernt.\n");
+  process.stderr.write("Token removed from Keychain and config deleted.\n");
 }
 
 async function runLogin(): Promise<void> {
   if (!process.stderr.isTTY) {
-    process.stderr.write("warpgate-cli: login benötigt ein interaktives Terminal.\n");
+    process.stderr.write("warpgate-cli: login requires an interactive terminal.\n");
     process.exit(1);
   }
 
@@ -127,28 +127,28 @@ async function runLogin(): Promise<void> {
   if (credentials.username) cfg.username = credentials.username;
   await writeConfig(cfg);
   await setToken(credentials.token);
-  process.stderr.write(`✓ Token gespeichert für ${credentials.baseUrl}.\n`);
+  process.stderr.write(`Token saved for ${credentials.baseUrl}.\n`);
 }
 
 async function runSetUser(name: string | undefined): Promise<void> {
   if (!name || name.trim().length === 0) {
-    process.stderr.write("Verwendung: warpgate-cli user <username>\n");
+    process.stderr.write("Usage: warpgate-cli user <username>\n");
     process.exit(64);
   }
   const existing = await readConfig();
   if (!existing) {
     process.stderr.write(
-      "Keine Config gefunden. Bitte zuerst `warpgate-cli login` ausführen.\n",
+      "No config found. Run `warpgate-cli login` first.\n",
     );
     process.exit(2);
   }
   await writeConfig({ ...existing, username: name.trim() });
-  process.stderr.write(`✓ Username gesetzt: ${name.trim()}\n`);
+  process.stderr.write(`Username set: ${name.trim()}\n`);
 }
 
 async function runPick(): Promise<void> {
   if (!process.stderr.isTTY) {
-    process.stderr.write("warpgate-cli: pick benötigt ein interaktives Terminal auf stderr.\n");
+    process.stderr.write("warpgate-cli: pick requires an interactive terminal on stderr.\n");
     process.exit(1);
   }
 
@@ -178,7 +178,7 @@ async function runPick(): Promise<void> {
 
   if (result.kind === "auth-error") {
     process.stderr.write(
-      "warpgate-cli: Token wurde abgelehnt. Setze ihn neu mit: warpgate-cli login\n",
+      "warpgate-cli: token was rejected. Refresh it with: warpgate-cli login\n",
     );
     process.exit(2);
   }
@@ -197,8 +197,8 @@ async function runPick(): Promise<void> {
     const password = await getDbPassword(result.db.id);
     if (!password) {
       process.stderr.write(
-        `warpgate-cli: Passwort für DB '${result.db.label}' fehlt im Keychain. ` +
-          `Mit \`warpgate-cli db edit ${result.db.label}\` neu setzen.\n`,
+        `warpgate-cli: password for DB '${result.db.label}' is missing from Keychain. ` +
+          `Reset it with \`warpgate-cli db edit ${result.db.label}\`.\n`,
       );
       process.exit(2);
     }
@@ -229,7 +229,7 @@ async function runDb(args: string[]): Promise<void> {
     case "edit":
       return runDbEdit(rest[0]);
     default:
-      process.stderr.write(`Unbekannter db-Befehl: ${action}\n\n`);
+      process.stderr.write(`Unknown db command: ${action}\n\n`);
       printHelp();
       process.exit(64);
   }
@@ -249,8 +249,8 @@ function parseAddArgs(args: string[]): { target?: string } {
 async function runDbList(): Promise<void> {
   const all = await readDatabases();
   if (all.length === 0) {
-    process.stdout.write("Keine Datenbank-Connections angelegt.\n");
-    process.stdout.write("Anlegen mit: warpgate-cli db add\n");
+    process.stdout.write("No database connections configured.\n");
+    process.stdout.write("Add one with: warpgate-cli db add\n");
     return;
   }
 
@@ -269,7 +269,7 @@ async function runDbList(): Promise<void> {
 
   const sortedTargets = [...byTarget.keys()].sort();
   for (const t of sortedTargets) {
-    const tag = orphan(t) ? " (verwaist)" : "";
+    const tag = orphan(t) ? " (orphaned)" : "";
     process.stdout.write(`\n${t}${tag}\n`);
     for (const db of byTarget.get(t)!) {
       const port = db.dbPort ? `:${db.dbPort}` : "";
@@ -295,7 +295,7 @@ async function fetchKnownTargetsSafe(): Promise<Set<string> | null> {
 
 async function runDbAdd(opts: { target?: string }): Promise<void> {
   if (!process.stderr.isTTY) {
-    process.stderr.write("warpgate-cli: db add benötigt ein interaktives Terminal.\n");
+    process.stderr.write("warpgate-cli: db add requires an interactive terminal.\n");
     process.exit(1);
   }
 
@@ -303,7 +303,7 @@ async function runDbAdd(opts: { target?: string }): Promise<void> {
   if (!targetName) {
     const picked = await pickTargetForDbAdd();
     if (!picked) {
-      process.stderr.write("Abgebrochen.\n");
+      process.stderr.write("Cancelled.\n");
       process.exit(130);
     }
     targetName = picked;
@@ -311,7 +311,7 @@ async function runDbAdd(opts: { target?: string }): Promise<void> {
 
   const draft = await runWizard(targetName);
   if (!draft) {
-    process.stderr.write("Abgebrochen.\n");
+    process.stderr.write("Cancelled.\n");
     process.exit(130);
   }
 
@@ -327,41 +327,41 @@ async function runDbAdd(opts: { target?: string }): Promise<void> {
     draft.password,
   );
   process.stderr.write(
-    `✓ Datenbank '${entry.label}' für Target '${targetName}' angelegt.\n`,
+    `Database '${entry.label}' added for target '${targetName}'.\n`,
   );
 }
 
 async function runDbRemove(query: string | undefined): Promise<void> {
   if (!query) {
-    process.stderr.write("Verwendung: warpgate-cli db remove <id|label>\n");
+    process.stderr.write("Usage: warpgate-cli db remove <id|label>\n");
     process.exit(64);
   }
   const entry = await findDatabase(query);
   if (!entry) {
-    process.stderr.write(`Keine Datenbank gefunden für '${query}'.\n`);
+    process.stderr.write(`No database found for '${query}'.\n`);
     process.exit(2);
   }
   const ok = await removeDatabase(entry.id);
   if (ok) {
-    process.stderr.write(`✓ Datenbank '${entry.label}' entfernt.\n`);
+    process.stderr.write(`Database '${entry.label}' removed.\n`);
   } else {
-    process.stderr.write(`Konnte Datenbank '${entry.label}' nicht entfernen.\n`);
+    process.stderr.write(`Could not remove database '${entry.label}'.\n`);
     process.exit(2);
   }
 }
 
 async function runDbEdit(query: string | undefined): Promise<void> {
   if (!query) {
-    process.stderr.write("Verwendung: warpgate-cli db edit <id|label>\n");
+    process.stderr.write("Usage: warpgate-cli db edit <id|label>\n");
     process.exit(64);
   }
   if (!process.stderr.isTTY) {
-    process.stderr.write("warpgate-cli: db edit benötigt ein interaktives Terminal.\n");
+    process.stderr.write("warpgate-cli: db edit requires an interactive terminal.\n");
     process.exit(1);
   }
   const existing = await findDatabase(query);
   if (!existing) {
-    process.stderr.write(`Keine Datenbank gefunden für '${query}'.\n`);
+    process.stderr.write(`No database found for '${query}'.\n`);
     process.exit(2);
   }
 
@@ -373,7 +373,7 @@ async function runDbEdit(query: string | undefined): Promise<void> {
     ...(existing.dbPort !== undefined ? { dbPort: existing.dbPort } : {}),
   });
   if (!draft) {
-    process.stderr.write("Abgebrochen.\n");
+    process.stderr.write("Cancelled.\n");
     process.exit(130);
   }
 
@@ -388,7 +388,7 @@ async function runDbEdit(query: string | undefined): Promise<void> {
     },
     draft.password,
   );
-  process.stderr.write(`✓ Datenbank '${draft.label}' aktualisiert.\n`);
+  process.stderr.write(`Database '${draft.label}' updated.\n`);
 }
 
 // ─── Shell-Wrapper Setup ─────────────────────────────────────────────────────
@@ -433,9 +433,9 @@ async function runSetupShell(flag: string | undefined): Promise<void> {
   }
 
   process.stderr.write(
-    `Konnte Shell nicht erkennen ($SHELL=${shellPath}).\n` +
-      `Füge folgendes manuell in deine rc-Datei ein:\n\n${SH_FN}\n` +
-      `(oder rufe \`warpgate-cli setup-shell --print\` auf, um den Snippet zu erhalten)\n`,
+    `Could not detect shell ($SHELL=${shellPath}).\n` +
+      `Add this manually to your rc file:\n\n${SH_FN}\n` +
+      `(or run \`warpgate-cli setup-shell --print\` to print the snippet)\n`,
   );
   process.exit(2);
 }
@@ -446,7 +446,7 @@ async function installPosixFunction(shell: "zsh" | "bash"): Promise<void> {
   try {
     existing = await readFile(file, "utf8");
   } catch {
-    // file doesn't exist yet — wird gleich erstellt
+    // File does not exist yet; it will be created below.
   }
 
   const beginIdx = existing.indexOf(MARKER_BEGIN);
@@ -454,29 +454,29 @@ async function installPosixFunction(shell: "zsh" | "bash"): Promise<void> {
   const hasBlock = beginIdx !== -1 && endIdx !== -1 && endIdx > beginIdx;
 
   let newContent: string;
-  let action: "installiert" | "aktualisiert";
+  let action: "installed" | "updated";
 
   if (hasBlock) {
     const before = existing.slice(0, beginIdx);
     const after = existing.slice(endIdx + MARKER_END.length);
     const existingBlock = existing.slice(beginIdx, endIdx + MARKER_END.length);
     if (existingBlock === SH_FN.trimEnd()) {
-      process.stderr.write(`✓ Wrapper in ${file} ist bereits aktuell.\n`);
+      process.stderr.write(`Wrapper in ${file} is already up to date.\n`);
       return;
     }
     newContent = before + SH_FN.trimEnd() + after;
-    action = "aktualisiert";
+    action = "updated";
   } else {
     const sep = existing.length === 0 || existing.endsWith("\n") ? "" : "\n";
     newContent = `${existing}${sep}\n${SH_FN}`;
-    action = "installiert";
+    action = "installed";
   }
 
   await writeFile(file, newContent);
   process.stderr.write(
-    `✓ Wrapper-Function in ${file} ${action}.\n` +
-      `  Aktiviere sie mit: source ${file}\n` +
-      `  oder öffne eine neue Shell. Dann: warpgate\n`,
+    `Wrapper function ${action} in ${file}.\n` +
+      `  Activate it with: source ${file}\n` +
+      `  or open a new shell, then run: warpgate\n`,
   );
 }
 
@@ -486,8 +486,8 @@ async function installFishFunction(): Promise<void> {
   await mkdir(dir, { recursive: true });
   await writeFile(file, FISH_FN);
   process.stderr.write(
-    `✓ Wrapper nach ${file} installiert.\n` +
-      `  Öffne eine neue fish-Shell, dann: warpgate\n`,
+    `Wrapper installed to ${file}.\n` +
+      `  Open a new fish shell, then run: warpgate\n`,
   );
 }
 
@@ -574,14 +574,14 @@ async function pickTargetForDbAdd(): Promise<string | null> {
   const token = await getToken();
   if (!config || !token) {
     process.stderr.write(
-      "Keine Warpgate-Konfiguration. Bitte zuerst `warpgate-cli login` ausführen.\n",
+      "No Warpgate config found. Run `warpgate-cli login` first.\n",
     );
     process.exit(2);
   }
   const targets = await fetchTargets(config.baseUrl, token);
   const sshTargets = targets.filter((t) => t.kind === "Ssh");
   if (sshTargets.length === 0) {
-    process.stderr.write("Keine SSH-Targets verfügbar.\n");
+    process.stderr.write("No SSH targets available.\n");
     return null;
   }
 
@@ -728,7 +728,7 @@ function PickerApp({
   if (state.kind === "loading") {
     return (
       <Box>
-        <Text color="yellow">⏳ Lade Targets von {baseUrl}…</Text>
+        <Text color="yellow">Loading targets from {baseUrl}...</Text>
       </Box>
     );
   }
@@ -736,7 +736,7 @@ function PickerApp({
   if (state.targets.length === 0) {
     return (
       <Box flexDirection="column">
-        <Text color="yellow">Keine SSH-Targets für diesen Account verfügbar.</Text>
+        <Text color="yellow">No SSH targets available for this account.</Text>
         <NoTargetsExit onExit={() => exit()} />
       </Box>
     );
@@ -799,6 +799,6 @@ for (const stream of [process.stdout, process.stderr]) {
 }
 
 main().catch((e) => {
-  process.stderr.write(`warpgate-cli: Fataler Fehler: ${(e as Error).message}\n`);
+  process.stderr.write(`warpgate-cli: fatal error: ${(e as Error).message}\n`);
   process.exit(1);
 });

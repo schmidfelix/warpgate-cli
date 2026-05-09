@@ -1,254 +1,247 @@
 # warpgate-cli
 
-> Quick-Access TUI für [Warpgate](https://github.com/warp-tech/warpgate) SSH-Targets — Suchen, Auswählen, Verbinden in unter einer Sekunde.
+> Quick-access TUI for [Warpgate](https://github.com/warp-tech/warpgate) SSH targets. Search, select, and connect in under a second.
 
-`warpgate-cli` ist ein kleiner Helper, der das ständige Nachschlagen von Target-Namen im Warpgate Web-UI und das manuelle Eintippen von `ssh user:target@host -p port` überflüssig macht. Ein Tastendruck → durchsuchen → Enter → SSH-Session.
+`warpgate-cli` removes the need to look up target names in the Warpgate Web UI and manually type `ssh user:target@host -p port`. Press a key, search, hit Enter, and start the SSH session.
 
-<!-- TODO: Demo-GIF / Screencast hier einfügen -->
+<!-- TODO: Add demo GIF / screencast here -->
 <!-- ![Demo](docs/demo.gif) -->
 
 ## Features
 
-- Fuzzy-Suche über alle SSH-Targets (Name, Description, Gruppe)
-- Gruppierung mit den Bootstrap-Farben aus dem Warpgate Web-UI
-- Token-Speicherung im macOS Keychain (kein Klartext auf der Platte)
-- Onboarding-Flow beim ersten Aufruf
-- Shell-Wrapper (zsh / bash / fish): SSH läuft als direkter Kindprozess der Shell — keine TTY-/Performance-Probleme, `SetEnv`/`ssh_config` greifen normal
-- **Datenbanken über SSH-Tunnel**: Tab im Picker → MySQL/MariaDB-Connections für das Target öffnen sich automatisch in TablePlus (siehe [Datenbanken](#datenbanken))
+- Fuzzy search across all SSH targets by name, description, and group
+- Grouping with the Bootstrap colors used by the Warpgate Web UI
+- Token storage in the macOS Keychain instead of plaintext files
+- First-run onboarding flow
+- Shell wrapper for zsh, bash, and fish so SSH runs as a direct child process of your shell
+- Database connections over SSH tunnels: open MySQL/MariaDB connections for a target in TablePlus from the picker
 
-<!-- TODO: Screenshot des Pickers hier einfügen -->
+<!-- TODO: Add picker screenshot here -->
 <!-- ![Picker](docs/picker.png) -->
 
-## Voraussetzungen
+## Requirements
 
-- **macOS** (für `security` / Keychain — Linux-Support wäre möglich, ist aber aktuell nicht implementiert)
-- **[Bun](https://bun.sh)** ≥ 1.0 (für Build / Development)
-- Eine erreichbare Warpgate-Instanz und einen API-Token (im Web-UI unter *Profil → API Tokens*)
+- macOS for `security` / Keychain support
+- [Bun](https://bun.sh) 1.0 or newer
+- A reachable Warpgate instance and an API token from the Web UI under Profile -> API Tokens
+- [TablePlus](https://tableplus.com/) for the optional database workflow
 
 ## Installation
 
-### Option A: Single-Binary bauen (empfohlen)
+### npm
+
+```bash
+npm install -g warpgate-cli
+warpgate-cli setup-shell
+```
+
+Open a new shell after installing the wrapper, then run:
+
+```bash
+warpgate
+```
+
+### Build from source
 
 ```bash
 git clone https://github.com/<github-user>/warpgate-cli.git
 cd warpgate-cli
 bun install
 bun run build
-# erzeugt ./warpgate-cli — irgendwohin in den $PATH legen, z.B.:
 mv warpgate-cli /usr/local/bin/
 ```
 
-### Option B: Über `bun link` (Development)
+### Development link
 
 ```bash
 bun install
 bun link
-# `warpgate-cli` ist nun in deinem PATH (über ~/.bun/bin/)
 ```
 
-### Shell-Wrapper installieren
+## Shell Wrapper
 
-`warpgate-cli` ist ein Helper-Binary; den eigentlichen `warpgate`-Befehl liefert eine kleine Shell-Function. Einmal einrichten:
+`warpgate-cli` is a helper binary. The interactive command is provided by a small shell function:
 
 ```bash
 warpgate-cli setup-shell
 ```
 
-Das fügt einen Block in `~/.zshrc` / `~/.bashrc` (oder eine Datei in `~/.config/fish/functions/` für fish) ein. Anschließend einmal die Shell neu öffnen — fertig.
+This adds a wrapper block to `~/.zshrc`, `~/.bashrc`, or `~/.config/fish/functions/warpgate.fish`.
 
-> **Warum ein Wrapper?** Wenn das CLI selbst `ssh` aufrufen würde, bliebe der Bun-Prozess als Parent stehen. Das verursacht spürbare Latenz, und Direktiven wie `SetEnv` aus deiner `~/.ssh/config` greifen nicht zuverlässig. Der Wrapper lässt `warpgate-cli pick` nur den fertigen `ssh`-Befehl auf stdout drucken, und `eval`'t ihn dann in der Shell. SSH wird dadurch direkter Kindprozess deiner Shell — keine Wrapper-Prozesse mehr im Spiel.
+The wrapper matters because SSH should run as a direct child process of your shell. That avoids TTY latency and keeps directives such as `SetEnv` from `~/.ssh/config` working as expected. The wrapper asks `warpgate-cli pick` to print a ready-to-run command and then evaluates it in the current shell.
 
-## Verwendung
+## Usage
 
 ```bash
 warpgate
 ```
 
-Beim ersten Aufruf wirst du nach Warpgate-URL und API-Token gefragt. Danach: einfach `warpgate` aufrufen, tippen, Enter drücken.
+On first run, the setup flow asks for the Warpgate URL and API token. After that, run `warpgate`, type to search, and press Enter.
 
-### Tastenkombinationen im Picker
+### Picker Keys
 
-| Taste | Aktion |
+| Key | Action |
 | --- | --- |
-| `↑` / `↓` | Auswahl bewegen |
-| `Enter` | SSH-Verbindung öffnen |
-| `Tab` / `→` | Datenbanken für selektiertes Target anzeigen |
-| `Esc` / `Ctrl+C` | Abbrechen (im DB-Submenü: zurück zur Hauptliste) |
-| Buchstaben | Live-Suche |
+| `Up` / `Down` | Move selection |
+| `Enter` | Open SSH connection |
+| `Tab` / `Right` | Show databases for the selected target |
+| `Esc` / `Ctrl+C` | Cancel, or return to the main list from the database submenu |
+| Letters | Live search |
 
 ### Subcommands
 
 ```bash
-warpgate-cli login                # Token (neu) setzen
-warpgate-cli logout               # Token + Config löschen
-warpgate-cli user <username>      # Warpgate-Username manuell setzen
-warpgate-cli setup-shell          # Wrapper-Function (re)installieren
-warpgate-cli setup-shell --print  # Snippet auf stdout drucken (für eigene rc-Files)
-warpgate-cli db                   # Datenbank-Connections auflisten
-warpgate-cli db add               # Wizard: neue DB-Connection anlegen
-warpgate-cli db remove <id|label> # DB-Connection entfernen
-warpgate-cli db edit   <id|label> # DB-Connection bearbeiten
-warpgate-cli help                 # Hilfe
+warpgate-cli login                # Set or refresh token
+warpgate-cli logout               # Remove token and config
+warpgate-cli user <username>      # Set Warpgate username manually
+warpgate-cli setup-shell          # Install or update shell wrapper
+warpgate-cli setup-shell --print  # Print wrapper snippet
+warpgate-cli db                   # List database connections
+warpgate-cli db add               # Add a database connection
+warpgate-cli db remove <id|label> # Remove a database connection
+warpgate-cli db edit   <id|label> # Edit a database connection
+warpgate-cli help                 # Show help
 ```
 
-### Username manuell setzen
+### Manual Username
 
-Manche Warpgate-Setups liefern für Token-basierte Auth keinen Username über `/info`. In dem Fall fragt das Onboarding nach, oder du setzt ihn nachträglich:
+Some Warpgate setups do not return a username for token-based authentication through `/info`. In that case, onboarding asks for it, or you can set it later:
 
 ```bash
-warpgate-cli user max.mustermann
+warpgate-cli user alice
 ```
 
-## Datenbanken
+## Databases
 
-Datenbanken (MySQL / MariaDB), die nur lokal vom SSH-Target erreichbar sind (z.B. `dbstage` im internen DNS), lassen sich pro Target hinterlegen und mit einem Tastendruck in TablePlus öffnen — der SSH-Tunnel wird dabei über Warpgate aufgebaut.
+MySQL and MariaDB databases that are only reachable from an SSH target, such as an internal DNS name or `localhost`, can be attached to that target and opened in TablePlus. TablePlus creates the SSH tunnel through Warpgate and resolves the database host on the remote side.
 
-> **Warum nicht Warpgate's eingebauter MySQL-Proxy?** Der erwartet erreichbare DB-Hosts. Wenn die DB nur lokal auf dem Target auflösbar ist (z.B. `dbstage` über das interne DNS des Servers), funktioniert er nicht. Stattdessen baut TablePlus selbst einen SSH-Tunnel durch Warpgate auf und löst den DB-Host *am anderen Ende* auf.
+<!-- TODO: Add database submenu screenshot here -->
+<!-- ![Database submenu](docs/db-submenu.png) -->
 
-<!-- TODO: Screenshot des DB-Submenüs hier einfügen -->
-<!-- ![DB-Submenü](docs/db-submenu.png) -->
+### Add A Database
 
-### DB anlegen
+In the picker, select an SSH target, press `Tab`, choose `+ New database...`, and complete the wizard.
 
-Im Picker auf einem SSH-Target: `Tab` drücken → `+ Neue Datenbank…` wählen → Wizard durchklicken (Label, DB-Host, DB-User, DB-Name, optional Port, Passwort).
-
-Alternativ per CLI:
+From the CLI:
 
 ```bash
-warpgate-cli db add                       # Target-Picker, dann Wizard
-warpgate-cli db add --target stage-web    # direkt für dieses Target
+warpgate-cli db add                       # Pick a target, then run the wizard
+warpgate-cli db add --target stage-web    # Add directly for this target
 ```
 
-### DB öffnen
+### Open A Database
 
-Im Picker:
-
-```
-warpgate                    # Picker startet
-↓ ↑ Target auswählen
-Tab                         # Submenü mit DBs des Targets
-↓ ↑ DB auswählen
-Enter                       # TablePlus öffnet die Connection
+```text
+warpgate                    # Start picker
+Up / Down                   # Select target
+Tab                         # Open database submenu
+Up / Down                   # Select database
+Enter                       # Open TablePlus connection
 ```
 
-`warpgate-cli` druckt einen `open '<tableplus-url>'`-Befehl auf stdout, den der Shell-Wrapper per `eval` ausführt. TablePlus baut den SSH-Tunnel selbst auf und nutzt dabei deinen lokalen SSH-Key (`usePrivateKey=true`).
+`warpgate-cli` prints an `open '<tableplus-url>'` command to stdout. The shell wrapper evaluates that command, and TablePlus creates the SSH tunnel using your local SSH key with `usePrivateKey=true`.
 
-### DB-Verwaltung
+### Manage Databases
 
 ```bash
-warpgate-cli db                   # alle DB-Connections gruppiert nach Target
-warpgate-cli db edit stage-main   # via Label oder UUID; Wizard mit Defaults
+warpgate-cli db                   # List all database connections grouped by target
+warpgate-cli db edit stage-main   # Edit by label or UUID
 warpgate-cli db remove stage-main
 ```
 
-DBs für nicht (mehr) existierende Targets werden in `db list` als `(verwaist)` markiert — sie werden nicht automatisch gelöscht.
+Connections for targets that no longer exist are shown as `(orphaned)` in `db list`. They are not deleted automatically.
 
-### Speicherung der DB-Daten
+### Storage
 
-| Ort | Inhalt |
+| Location | Contents |
 | --- | --- |
-| `~/.config/warpgate-cli/databases.json` (mode 0600) | Metadaten: Label, Target-Verweis, DB-Host/User/Name/Port, UUID |
-| macOS Keychain (Service `warpgate-cli-db`, Account = UUID) | DB-Passwort |
+| `~/.config/warpgate-cli/config.json` with mode `0600` | `baseUrl`, optional `username` |
+| `~/.config/warpgate-cli/databases.json` with mode `0600` | Database metadata |
+| macOS Keychain service `warpgate-cli` | API token |
+| macOS Keychain service `warpgate-cli-db` | Database passwords |
 
-DB-Einträge bleiben bestehen, wenn du `warpgate-cli logout` ausführst — dort wird nur der Warpgate-Token entfernt. DBs entfernst du explizit per `warpgate-cli db remove <…>`.
+Database entries remain when `warpgate-cli logout` runs. Logout only removes the Warpgate token. Remove database entries explicitly with `warpgate-cli db remove <id|label>`.
 
-### Sicherheit
+## Environment
 
-Wenn der Shell-Wrapper `open '<url>'` ausführt, ist die TablePlus-URL inklusive DB-Passwort kurz (~50ms) in `ps`/argv-Listings sichtbar — analog zur Token-Übergabe an `security`. Auf Single-User-Maschinen unkritisch, sollte aber bei geteilten Maschinen bedacht werden.
-
-## Konfiguration
-
-| Ort | Inhalt |
+| Variable | Effect |
 | --- | --- |
-| `~/.config/warpgate-cli/config.json` (mode 0600) | `baseUrl`, optional `username` |
-| `~/.config/warpgate-cli/databases.json` (mode 0600) | DB-Connection-Metadaten |
-| macOS Keychain (`warpgate-cli`, Account = OS-User) | API-Token |
-| macOS Keychain (`warpgate-cli-db`, Account = DB-UUID) | DB-Passwörter |
+| `WARPGATE_MOCK=1` | Use local fixtures from `test/fixtures/` instead of the real API |
+| `WARPGATE_KEYCHAIN_SERVICE` | Override token Keychain service, default `warpgate-cli` |
+| `WARPGATE_DB_KEYCHAIN_SERVICE` | Override database password Keychain service, default `warpgate-cli-db` |
+| `WARPGATE_KEYCHAIN_BACKEND=memory` | Use an in-memory backend for tests |
+| `FORCE_COLOR=1` | Set by the shell wrapper so colors survive command substitution |
 
-### Umgebungsvariablen
-
-| Variable | Wirkung |
-| --- | --- |
-| `WARPGATE_MOCK=1` | Lokale Fixtures aus `test/fixtures/` statt echter API verwenden |
-| `WARPGATE_KEYCHAIN_SERVICE` | Token-Keychain-Service überschreiben (Default: `warpgate-cli`) |
-| `WARPGATE_DB_KEYCHAIN_SERVICE` | DB-Passwort-Keychain-Service überschreiben (Default: `warpgate-cli-db`) |
-| `WARPGATE_KEYCHAIN_BACKEND=memory` | In-Memory-Backend statt macOS Keychain — wird in Tests verwendet, damit weder Mac-Passwort-Prompts noch Keychain-Müll entstehen |
-| `FORCE_COLOR=1` | Wird vom Shell-Wrapper automatisch gesetzt, damit Farben auch in `$()`-Capture funktionieren |
-
-## Entwicklung
+## Development
 
 ```bash
-# Tests laufen lassen
+bun install
 bun test
-
-# Picker mit Mock-Daten lokal testen (kein Server nötig)
-WARPGATE_MOCK=1 bun run src/cli.tsx pick
-
-# Type-Check
 bunx tsc --noEmit
+WARPGATE_MOCK=1 bun run src/cli.tsx pick
 ```
 
-### Projektstruktur
+### Project Structure
 
-```
+```text
 src/
-├── cli.tsx           # Entry + Subcommand-Routing + Shell-Wrapper-Setup
-├── api.ts            # Warpgate HTTP-Client + Mock-Loader
+├── cli.tsx           # Entry point, subcommands, shell wrapper setup
+├── api.ts            # Warpgate HTTP client and mock fixture loader
 ├── config.ts         # ~/.config/warpgate-cli/config.json
-├── keychain.ts       # `security`-CLI Wrapper (Token + DB-Passwörter)
-├── ssh.ts            # buildSshConnection + buildSshCommandString (mit Shell-Quoting)
-├── tableplus.ts      # buildTablePlusUrl + buildOpenCommandString
-├── database.ts       # databases.json + DB-Keychain-Helpers
-├── colors.ts         # Bootstrap-Theme → ink-Color
-├── fuzzy.ts          # Score-Funktion für Live-Suche
-├── types.ts          # API-Typen + DatabaseEntry
+├── keychain.ts       # security CLI wrapper for tokens and database passwords
+├── ssh.ts            # SSH connection and shell command builders
+├── tableplus.ts      # TablePlus URL and open command builders
+├── database.ts       # databases.json and DB Keychain helpers
+├── colors.ts         # Bootstrap color to ink color mapping
+├── fuzzy.ts          # Live-search scoring
+├── types.ts          # API types and DatabaseEntry
 └── ui/
-    ├── Picker.tsx     # Suche + gruppierte Liste + Tastatur-Navigation
-    ├── Onboarding.tsx # URL → Token → (optional) Username
-    ├── DbSubmenu.tsx  # Sub-Picker für DBs eines Targets
-    └── DbWizard.tsx   # Multi-Step-Wizard für neue DB-Connections
+    ├── Picker.tsx
+    ├── Onboarding.tsx
+    ├── DbSubmenu.tsx
+    └── DbWizard.tsx
 test/
 ├── config.test.ts
 ├── fuzzy.test.ts
 ├── ssh.test.ts
 ├── tableplus.test.ts
 ├── database.test.ts
-└── fixtures/         # Mock-Daten für WARPGATE_MOCK=1
+└── fixtures/
 ```
 
 ## Troubleshooting
 
 **`warpgate: command not found`**
-Shell-Wrapper noch nicht installiert oder Shell noch nicht neu geladen → `warpgate-cli setup-shell && exec $SHELL`.
+Install the shell wrapper or reload your shell: `warpgate-cli setup-shell && exec $SHELL`.
 
-**`Token wurde abgelehnt`**
-Token im Warpgate Web-UI noch gültig? Mit `warpgate-cli login` neu setzen.
+**`Token was rejected`**
+Check whether the token is still valid in the Warpgate Web UI, then run `warpgate-cli login`.
 
-**`Username konnte nicht ermittelt werden`**
-`warpgate-cli user <dein-warpgate-username>`.
+**`Username could not be determined`**
+Set it manually with `warpgate-cli user <username>`.
 
-**Farben fehlen im Picker**
-Du nutzt einen alten Wrapper-Block ohne `FORCE_COLOR=1`. Lösung: `warpgate-cli setup-shell` erneut ausführen — der Block wird in-place aktualisiert.
+**No colors in the picker**
+Your shell wrapper may be outdated. Run `warpgate-cli setup-shell` again to update it in place.
 
-**`Passwort für DB '…' fehlt im Keychain`**
-Der DB-Eintrag ist in `databases.json`, aber der Keychain-Eintrag wurde gelöscht oder nie erstellt. `warpgate-cli db edit <label>` durchläuft den Wizard und schreibt das Passwort neu in den Keychain.
+**`password for DB '...' is missing from Keychain`**
+The metadata entry exists, but its Keychain password was deleted or never written. Run `warpgate-cli db edit <label>` to write the password again.
 
-**Conflict mit anderem `warpgate`-Befehl**
-Das Binary heißt absichtlich `warpgate-cli`. Der Befehl `warpgate` wird ausschließlich von der Shell-Function bereitgestellt, sodass keine Kollision mit anderen Tools (oder dem Warpgate-Server-Binary selbst) entsteht.
+**Conflict with another `warpgate` command**
+The binary is intentionally named `warpgate-cli`. The `warpgate` command is only provided by the shell wrapper, so it can be removed by deleting the wrapper block from your shell config.
 
-## Sicherheitshinweise
+## Security Notes
 
-- Der API-Token wird über die `security`-CLI an den Keychain übergeben. macOS' `security add-generic-password` nimmt das Secret ausschließlich als Argv-Parameter entgegen, daher ist der Token kurz (<50ms) in der Prozessliste sichtbar. Auf Single-User-Maschinen unkritisch — bitte trotzdem im Hinterkopf behalten.
-- `config.json` wird mit Mode `0600` geschrieben.
-- Es findet keine TLS-Cert-Validierung jenseits der Defaults von Bun's `fetch` statt.
+- API tokens and database passwords are passed to the macOS `security` CLI as arguments because `security add-generic-password` accepts secrets that way. They may be visible briefly in process listings on the local machine.
+- Config files are written with mode `0600`.
+- TLS certificate validation relies on Bun's default `fetch` behavior.
+- TablePlus URLs include the database password while the `open` command is running. This is brief, but worth considering on shared machines.
 
-## Lizenz
+## License
 
-<!-- TODO: Lizenz wählen (MIT empfohlen) und entsprechend ergänzen -->
-TBD
+MIT. See [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-- [Warpgate](https://github.com/warp-tech/warpgate) — der eigentliche Proxy
-- [ink](https://github.com/vadimdemedes/ink) — React für Terminals
-- [Bun](https://bun.sh) — Runtime und Build-Tool
+- [Warpgate](https://github.com/warp-tech/warpgate), the proxy this tool works with
+- [ink](https://github.com/vadimdemedes/ink), React for terminals
+- [Bun](https://bun.sh), runtime and build tool

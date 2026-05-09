@@ -41,14 +41,14 @@ async function get<T>(baseUrl: string, token: string, route: string): Promise<T>
       },
     });
   } catch (e) {
-    throw new ApiError(`Netzwerkfehler beim Aufruf von ${url}: ${(e as Error).message}`);
+    throw new ApiError(`Network error while calling ${url}: ${(e as Error).message}`);
   }
   if (res.status === 401 || res.status === 403) {
-    throw new AuthError(`Token abgelehnt (HTTP ${res.status})`);
+    throw new AuthError(`Token rejected (HTTP ${res.status})`);
   }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new ApiError(`API-Fehler ${res.status} ${res.statusText}: ${body.slice(0, 200)}`);
+    throw new ApiError(`API error ${res.status} ${res.statusText}: ${body.slice(0, 200)}`);
   }
   return (await res.json()) as T;
 }

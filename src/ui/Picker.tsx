@@ -36,7 +36,7 @@ type View =
   | { kind: "wizard"; target: TargetSnapshot };
 
 const UNGROUPED_KEY = "__ungrouped__";
-const UNGROUPED_LABEL = "Ungruppiert";
+const UNGROUPED_LABEL = "Ungrouped";
 
 export function Picker({
   targets,
@@ -224,18 +224,18 @@ function MainPicker({
       <Box>
         <Text color="cyan">› </Text>
         <Text>{query}</Text>
-        <Text color="gray">{query.length === 0 ? "Suche…" : ""}</Text>
+        <Text color="gray">{query.length === 0 ? "Search..." : ""}</Text>
         <Text>█</Text>
       </Box>
       <Box>
         <Text color="gray">
-          {itemCount} Target{itemCount === 1 ? "" : "s"} · ↑↓ navigieren · Enter SSH · Tab Datenbanken · Esc abbrechen
+          {itemCount} target{itemCount === 1 ? "" : "s"} · up/down navigate · Enter SSH · Tab databases · Esc cancel
         </Text>
       </Box>
 
       <Box flexDirection="column" marginTop={1}>
         {rows.length === 0 ? (
-          <Text color="gray" italic>Keine Targets gefunden.</Text>
+          <Text color="gray" italic>No targets found.</Text>
         ) : (
           visibleRows.map((row, i) => {
             const absIdx = windowStart + i;
@@ -257,7 +257,7 @@ function MainPicker({
 
       {windowEnd < rows.length && (
         <Box>
-          <Text color="gray">… {rows.length - windowEnd} weitere</Text>
+          <Text color="gray">... {rows.length - windowEnd} more</Text>
         </Box>
       )}
     </Box>

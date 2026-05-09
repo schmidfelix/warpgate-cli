@@ -1,14 +1,38 @@
 {
   "name": "warpgate-cli",
   "version": "0.1.0",
+  "description": "Quick-access terminal picker for Warpgate SSH targets.",
   "type": "module",
-  "private": true,
+  "license": "MIT",
   "bin": {
-    "warpgate-cli": "./src/cli.tsx"
+    "warpgate-cli": "src/cli.tsx"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "os": [
+    "darwin"
+  ],
+  "keywords": [
+    "warpgate",
+    "ssh",
+    "tui",
+    "cli",
+    "tableplus"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "start": "bun run src/cli.tsx",
-    "build": "bun build src/cli.tsx --compile --target=bun-darwin-arm64 --outfile=warpgate-cli"
+    "build": "bun build src/cli.tsx --compile --target=bun-darwin-arm64 --outfile=warpgate-cli",
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit"
   },
   "devDependencies": {
     "@types/bun": "latest",

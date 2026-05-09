@@ -23,14 +23,14 @@ export function buildSshConnection(
   const username = info.username ?? config.username;
   if (!username) {
     throw new SshSetupError(
-      "Username konnte nicht ermittelt werden. Setze ihn mit: warpgate-cli user <username>",
+      "Username could not be determined. Set it with: warpgate-cli user <username>",
     );
   }
 
   const port = info.ports?.ssh;
   if (!port) {
     throw new SshSetupError(
-      "Warpgate-Instanz hat keinen SSH-Port konfiguriert (info.ports.ssh fehlt).",
+      "Warpgate instance has no SSH port configured (info.ports.ssh is missing).",
     );
   }
 
@@ -39,7 +39,7 @@ export function buildSshConnection(
     try {
       host = new URL(config.baseUrl).hostname;
     } catch {
-      throw new SshSetupError(`Ungültige baseUrl in Config: ${config.baseUrl}`);
+      throw new SshSetupError(`Invalid baseUrl in config: ${config.baseUrl}`);
     }
   }
 

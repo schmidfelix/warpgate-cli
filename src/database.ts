@@ -7,7 +7,7 @@ import { setDbPassword, deleteDbPassword } from "./keychain.ts";
 
 // Resolve HOME at *call time*, not import time, AND honor process.env.HOME
 // before falling back to os.homedir(). os.homedir() uses getpwuid() and
-// ignores HOME on POSIX, which previously broke test isolation — tests would
+// ignores HOME on POSIX, which previously broke test isolation: tests would
 // silently overwrite the real ~/.config/warpgate-cli/databases.json. Never
 // again. Tests now set process.env.HOME and these resolvers respect it.
 function homeDir(): string {
@@ -87,7 +87,7 @@ async function rotateBackups(): Promise<void> {
     await chmod(bakFile(1), 0o600);
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
-    // No existing file → nothing to back up. Fine.
+    // No existing file, nothing to back up.
   }
 }
 
@@ -97,9 +97,8 @@ export async function writeDatabases(entries: DatabaseEntry[]): Promise<void> {
   if (isMockMode()) {
     throw new Error(
       "writeDatabases verweigert: WARPGATE_MOCK=1 ist gesetzt. " +
-        "Im Mock-Mode darf nicht geschrieben werden, sonst würden Mock-Fixtures " +
-        "die echte databases.json überschreiben. " +
-        "Unset WARPGATE_MOCK für echte Mutationen.",
+        "Mock mode is read-only to avoid writing fixture data over the real databases.json. " +
+        "Unset WARPGATE_MOCK for real mutations.",
     );
   }
 
@@ -129,8 +128,8 @@ function ensureMutableContext(op: string): void {
   if (isMockMode()) {
     throw new Error(
       `${op} verweigert: WARPGATE_MOCK=1 ist gesetzt. Mutationen sind im Mock-Mode deaktiviert, ` +
-        `damit Mock-Fixtures nicht versehentlich die echte Config überschreiben. ` +
-        `Unset WARPGATE_MOCK für echte Mutationen.`,
+        `so fixture data cannot overwrite the real config by accident. ` +
+        `Unset WARPGATE_MOCK for real mutations.`,
     );
   }
 }

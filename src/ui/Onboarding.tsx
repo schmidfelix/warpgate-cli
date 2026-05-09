@@ -40,7 +40,7 @@ export function Onboarding({ defaultBaseUrl, defaultUsername, onComplete, onCanc
             onSubmit={(v) => {
               const normalized = normalizeBaseUrl(v);
               if (!/^https?:\/\//i.test(normalized)) {
-                setPhase({ kind: "error", baseUrl: normalized, message: "URL muss mit http:// oder https:// beginnen." });
+                setPhase({ kind: "error", baseUrl: normalized, message: "URL must start with http:// or https://." });
                 return;
               }
               setPhase({ kind: "token", baseUrl: normalized });
@@ -48,7 +48,7 @@ export function Onboarding({ defaultBaseUrl, defaultUsername, onComplete, onCanc
           />
         </Box>
         <Box marginTop={1}>
-          <Text color="gray">Esc zum Abbrechen.</Text>
+          <Text color="gray">Press Esc to cancel.</Text>
         </Box>
       </Box>
     );
@@ -70,7 +70,7 @@ export function Onboarding({ defaultBaseUrl, defaultUsername, onComplete, onCanc
             onSubmit={(v) => {
               const t = v.trim();
               if (!t) {
-                setPhase({ kind: "error", baseUrl: phase.baseUrl, message: "Token darf nicht leer sein." });
+                setPhase({ kind: "error", baseUrl: phase.baseUrl, message: "Token must not be empty." });
                 return;
               }
               validate(phase.baseUrl, t);
@@ -78,7 +78,7 @@ export function Onboarding({ defaultBaseUrl, defaultUsername, onComplete, onCanc
           />
         </Box>
         <Box marginTop={1}>
-          <Text color="gray">Token erstellst du im Warpgate Web-UI unter Profil → API Tokens.</Text>
+          <Text color="gray">Create a token in the Warpgate Web UI under Profile {">"} API Tokens.</Text>
         </Box>
       </Box>
     );
@@ -89,7 +89,7 @@ export function Onboarding({ defaultBaseUrl, defaultUsername, onComplete, onCanc
       <Box flexDirection="column">
         <Text bold color="cyan">Warpgate CLI Setup</Text>
         <Box marginTop={1}>
-          <Text color="yellow">Validiere Token gegen {phase.baseUrl}…</Text>
+          <Text color="yellow">Validating token against {phase.baseUrl}...</Text>
         </Box>
       </Box>
     );
@@ -100,12 +100,12 @@ export function Onboarding({ defaultBaseUrl, defaultUsername, onComplete, onCanc
       <Box flexDirection="column">
         <Text bold color="cyan">Warpgate CLI Setup</Text>
         <Box marginTop={1}>
-          <Text color="green">✓ Token validiert.</Text>
+          <Text color="green">Token validated.</Text>
         </Box>
         <Box marginTop={1}>
           <Text color="gray">
-            Warpgate hat keinen Username für diesen Token zurückgeliefert. Bitte manuell eingeben
-            (derselbe Name, mit dem du dich im Warpgate Web-UI anmeldest).
+            Warpgate did not return a username for this token. Enter it manually
+            (the same name you use to sign in to the Warpgate Web UI).
           </Text>
         </Box>
         <Box marginTop={1}>
@@ -116,7 +116,7 @@ export function Onboarding({ defaultBaseUrl, defaultUsername, onComplete, onCanc
             onSubmit={(v) => {
               const u = v.trim();
               if (!u) {
-                setPhase({ kind: "error", baseUrl: phase.baseUrl, message: "Username darf nicht leer sein." });
+                setPhase({ kind: "error", baseUrl: phase.baseUrl, message: "Username must not be empty." });
                 return;
               }
               onComplete(phase.baseUrl, phase.token, u);
@@ -135,7 +135,7 @@ export function Onboarding({ defaultBaseUrl, defaultUsername, onComplete, onCanc
         <Text color="red">✖ {phase.message}</Text>
       </Box>
       <Box marginTop={1}>
-        <Text color="gray">Drücke Enter um es erneut zu versuchen oder Esc zum Abbrechen.</Text>
+        <Text color="gray">Press Enter to try again, or Esc to cancel.</Text>
       </Box>
       <ErrorContinueWatcher onContinue={() => {
         setTokenValue("");
@@ -157,8 +157,8 @@ export function Onboarding({ defaultBaseUrl, defaultUsername, onComplete, onCanc
       },
       (e) => {
         const msg = e instanceof AuthError
-          ? "Token wurde abgelehnt. Bitte erneut versuchen."
-          : `Validierung fehlgeschlagen: ${(e as Error).message}`;
+          ? "Token was rejected. Please try again."
+          : `Validation failed: ${(e as Error).message}`;
         setPhase({ kind: "error", baseUrl, message: msg });
       },
     );

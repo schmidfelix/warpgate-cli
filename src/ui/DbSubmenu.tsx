@@ -80,13 +80,13 @@ export function DbSubmenu({
     <Box flexDirection="column">
       <Box>
         <Text bold color="cyan">
-          Datenbanken für {target.name}
+          Databases for {target.name}
         </Text>
       </Box>
       <Box>
         <Text color="gray">
-          {databases.length} DB{databases.length === 1 ? "" : "s"} · ↑↓ navigieren · Enter öffnen · d
-          löschen · Esc zurück
+          {databases.length} DB{databases.length === 1 ? "" : "s"} · up/down navigate · Enter open · d
+          delete · Esc back
         </Text>
       </Box>
 
@@ -131,7 +131,7 @@ function SubmenuRow({
           {selected ? "❯ " : "  "}
         </Text>
         <Text color={selected ? "cyan" : "green"} bold={selected}>
-          ＋ Neue Datenbank…
+          + New database...
         </Text>
       </Box>
     );
@@ -157,7 +157,7 @@ function SubmenuRow({
         <Text color="red" bold>
           {selected ? "❯ " : "  "}🗄 {labelDisplay}
         </Text>
-        <Text color="red">  Wirklich löschen? (y/N)</Text>
+        <Text color="red">  Really delete? (y/N)</Text>
       </Box>
     );
   }
