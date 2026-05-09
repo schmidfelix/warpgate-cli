@@ -6,16 +6,26 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { render, Box, Text, useApp } from "ink";
 import { readConfig, writeConfig, deleteConfig } from "./config.ts";
 import type { Config } from "./config.ts";
-import { getToken, setToken, deleteToken } from "./keychain.ts";
+import { getToken, setToken, deleteToken, getDbPassword } from "./keychain.ts";
 import { fetchInfo, fetchTargets, AuthError } from "./api.ts";
 import { Picker } from "./ui/Picker.tsx";
 import { Onboarding } from "./ui/Onboarding.tsx";
+import { DbWizard } from "./ui/DbWizard.tsx";
 import {
   buildSshConnection,
   buildSshCommandString,
   SshSetupError,
 } from "./ssh.ts";
-import type { Info, TargetSnapshot } from "./types.ts";
+import { buildTablePlusUrl, buildOpenCommandString } from "./tableplus.ts";
+import {
+  readDatabases,
+  databasesForTarget,
+  addDatabase,
+  removeDatabase,
+  updateDatabase,
+  findDatabase,
+} from "./database.ts";
+import type { DatabaseEntry, Info, TargetSnapshot } from "./types.ts";
 
 const cmd = process.argv[2];
 
@@ -31,6 +41,8 @@ async function main(): Promise<void> {
       return runSetUser(process.argv[3]);
     case "setup-shell":
       return runSetupShell(process.argv[3]);
+    case "db":
+      return runDb(process.argv.slice(3));
     case "help":
     case "--help":
     case "-h":
@@ -67,18 +79,26 @@ function printHelp(): void {
 
 Verwendung:
   warpgate-cli setup-shell [--print]   Wrapper-Function in Shell installieren
-  warpgate-cli pick                    Picker zeigen, gewähltes ssh-Command auf stdout
+  warpgate-cli pick                    Picker zeigen, gewähltes Command auf stdout
                                        (wird vom Shell-Wrapper aufgerufen)
   warpgate-cli login                   API-Token setzen oder erneuern
   warpgate-cli logout                  API-Token und Config entfernen
   warpgate-cli user <name>             Warpgate-Username manuell setzen
+  warpgate-cli db                      Datenbank-Connections auflisten
+  warpgate-cli db add [--target NAME]  Neue Datenbank-Connection anlegen
+  warpgate-cli db remove <id|label>    Datenbank-Connection entfernen
+  warpgate-cli db edit <id|label>      Datenbank-Connection bearbeiten
   warpgate-cli help                    Diese Hilfe anzeigen
 
-Nach setup-shell startest du eine neue Shell und nutzt: warpgate
+Im Picker:
+  Enter      → SSH-Verbindung
+  Tab / →    → Datenbanken für selektiertes Target
+  Esc        → abbrechen
 
 Umgebungsvariablen:
-  WARPGATE_MOCK=1               Lokale Fixtures statt echter API verwenden
-  WARPGATE_KEYCHAIN_SERVICE     Keychain-Service-Name (Default: warpgate-cli)
+  WARPGATE_MOCK=1                  Lokale Fixtures statt echter API verwenden
+  WARPGATE_KEYCHAIN_SERVICE        Token-Keychain-Service (Default: warpgate-cli)
+  WARPGATE_DB_KEYCHAIN_SERVICE     DB-Passwort-Keychain-Service (Default: warpgate-cli-db)
 `,
   );
 }
@@ -169,7 +189,21 @@ async function runPick(): Promise<void> {
 
   try {
     const conn = buildSshConnection(result.target, result.info, config);
-    process.stdout.write(buildSshCommandString(conn) + "\n");
+    if (result.kind === "ssh") {
+      process.stdout.write(buildSshCommandString(conn) + "\n");
+      process.exit(0);
+    }
+    // result.kind === "db"
+    const password = await getDbPassword(result.db.id);
+    if (!password) {
+      process.stderr.write(
+        `warpgate-cli: Passwort für DB '${result.db.label}' fehlt im Keychain. ` +
+          `Mit \`warpgate-cli db edit ${result.db.label}\` neu setzen.\n`,
+      );
+      process.exit(2);
+    }
+    const url = buildTablePlusUrl({ conn, db: result.db, dbPassword: password });
+    process.stdout.write(buildOpenCommandString(url) + "\n");
     process.exit(0);
   } catch (e) {
     if (e instanceof SshSetupError) {
@@ -178,6 +212,183 @@ async function runPick(): Promise<void> {
     }
     throw e;
   }
+}
+
+// ─── DB-Subcommands ──────────────────────────────────────────────────────────
+
+async function runDb(args: string[]): Promise<void> {
+  const [action = "list", ...rest] = args;
+  switch (action) {
+    case "list":
+      return runDbList();
+    case "add":
+      return runDbAdd(parseAddArgs(rest));
+    case "remove":
+    case "rm":
+      return runDbRemove(rest[0]);
+    case "edit":
+      return runDbEdit(rest[0]);
+    default:
+      process.stderr.write(`Unbekannter db-Befehl: ${action}\n\n`);
+      printHelp();
+      process.exit(64);
+  }
+}
+
+function parseAddArgs(args: string[]): { target?: string } {
+  const out: { target?: string } = {};
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === "--target" || a === "-t") {
+      out.target = args[++i];
+    }
+  }
+  return out;
+}
+
+async function runDbList(): Promise<void> {
+  const all = await readDatabases();
+  if (all.length === 0) {
+    process.stdout.write("Keine Datenbank-Connections angelegt.\n");
+    process.stdout.write("Anlegen mit: warpgate-cli db add\n");
+    return;
+  }
+
+  // Group by targetName for readability
+  const byTarget = new Map<string, DatabaseEntry[]>();
+  for (const e of all) {
+    const arr = byTarget.get(e.targetName) ?? [];
+    arr.push(e);
+    byTarget.set(e.targetName, arr);
+  }
+
+  // Determine orphans: targets that no longer exist in Warpgate
+  const knownTargets = await fetchKnownTargetsSafe();
+  const orphan = (name: string): boolean =>
+    knownTargets !== null && !knownTargets.has(name);
+
+  const sortedTargets = [...byTarget.keys()].sort();
+  for (const t of sortedTargets) {
+    const tag = orphan(t) ? " (verwaist)" : "";
+    process.stdout.write(`\n${t}${tag}\n`);
+    for (const db of byTarget.get(t)!) {
+      const port = db.dbPort ? `:${db.dbPort}` : "";
+      process.stdout.write(
+        `  ${db.label.padEnd(24)} ${db.dbUser}@${db.dbHost}${port}/${db.dbName}\n`,
+      );
+      process.stdout.write(`  ${"".padEnd(24)} id=${db.id}\n`);
+    }
+  }
+}
+
+async function fetchKnownTargetsSafe(): Promise<Set<string> | null> {
+  try {
+    const config = await readConfig();
+    const token = await getToken();
+    if (!config || !token) return null;
+    const targets = await fetchTargets(config.baseUrl, token);
+    return new Set(targets.map((t) => t.name));
+  } catch {
+    return null;
+  }
+}
+
+async function runDbAdd(opts: { target?: string }): Promise<void> {
+  if (!process.stderr.isTTY) {
+    process.stderr.write("warpgate-cli: db add benötigt ein interaktives Terminal.\n");
+    process.exit(1);
+  }
+
+  let targetName: string | undefined = opts.target;
+  if (!targetName) {
+    const picked = await pickTargetForDbAdd();
+    if (!picked) {
+      process.stderr.write("Abgebrochen.\n");
+      process.exit(130);
+    }
+    targetName = picked;
+  }
+
+  const draft = await runWizard(targetName);
+  if (!draft) {
+    process.stderr.write("Abgebrochen.\n");
+    process.exit(130);
+  }
+
+  const entry = await addDatabase(
+    {
+      targetName,
+      label: draft.label,
+      dbHost: draft.dbHost,
+      dbUser: draft.dbUser,
+      dbName: draft.dbName,
+      ...(draft.dbPort !== undefined ? { dbPort: draft.dbPort } : {}),
+    },
+    draft.password,
+  );
+  process.stderr.write(
+    `✓ Datenbank '${entry.label}' für Target '${targetName}' angelegt.\n`,
+  );
+}
+
+async function runDbRemove(query: string | undefined): Promise<void> {
+  if (!query) {
+    process.stderr.write("Verwendung: warpgate-cli db remove <id|label>\n");
+    process.exit(64);
+  }
+  const entry = await findDatabase(query);
+  if (!entry) {
+    process.stderr.write(`Keine Datenbank gefunden für '${query}'.\n`);
+    process.exit(2);
+  }
+  const ok = await removeDatabase(entry.id);
+  if (ok) {
+    process.stderr.write(`✓ Datenbank '${entry.label}' entfernt.\n`);
+  } else {
+    process.stderr.write(`Konnte Datenbank '${entry.label}' nicht entfernen.\n`);
+    process.exit(2);
+  }
+}
+
+async function runDbEdit(query: string | undefined): Promise<void> {
+  if (!query) {
+    process.stderr.write("Verwendung: warpgate-cli db edit <id|label>\n");
+    process.exit(64);
+  }
+  if (!process.stderr.isTTY) {
+    process.stderr.write("warpgate-cli: db edit benötigt ein interaktives Terminal.\n");
+    process.exit(1);
+  }
+  const existing = await findDatabase(query);
+  if (!existing) {
+    process.stderr.write(`Keine Datenbank gefunden für '${query}'.\n`);
+    process.exit(2);
+  }
+
+  const draft = await runWizard(existing.targetName, {
+    label: existing.label,
+    dbHost: existing.dbHost,
+    dbUser: existing.dbUser,
+    dbName: existing.dbName,
+    ...(existing.dbPort !== undefined ? { dbPort: existing.dbPort } : {}),
+  });
+  if (!draft) {
+    process.stderr.write("Abgebrochen.\n");
+    process.exit(130);
+  }
+
+  await updateDatabase(
+    existing.id,
+    {
+      label: draft.label,
+      dbHost: draft.dbHost,
+      dbUser: draft.dbUser,
+      dbName: draft.dbName,
+      ...(draft.dbPort !== undefined ? { dbPort: draft.dbPort } : { dbPort: undefined }),
+    },
+    draft.password,
+  );
+  process.stderr.write(`✓ Datenbank '${draft.label}' aktualisiert.\n`);
 }
 
 // ─── Shell-Wrapper Setup ─────────────────────────────────────────────────────
@@ -303,8 +514,124 @@ async function runOnboarding(
   return collected;
 }
 
+interface DbWizardDraft {
+  label: string;
+  dbHost: string;
+  dbUser: string;
+  dbName: string;
+  dbPort?: number;
+  password: string;
+}
+
+async function runWizard(
+  targetName: string,
+  initial?: Partial<Omit<DbWizardDraft, "password">>,
+): Promise<DbWizardDraft | null> {
+  let collected: DbWizardDraft | null = null;
+  const instance = render(
+    <WizardApp
+      targetName={targetName}
+      initial={initial}
+      onComplete={(draft) => {
+        collected = draft;
+      }}
+    />,
+    RENDER_OPTS,
+  );
+  await instance.waitUntilExit();
+  return collected;
+}
+
+function WizardApp({
+  targetName,
+  initial,
+  onComplete,
+}: {
+  targetName: string;
+  initial?: Partial<Omit<DbWizardDraft, "password">>;
+  onComplete: (draft: DbWizardDraft) => void;
+}) {
+  const { exit } = useApp();
+  return (
+    <DbWizard
+      targetName={targetName}
+      initialLabel={initial?.label}
+      initialDbHost={initial?.dbHost}
+      initialDbUser={initial?.dbUser}
+      initialDbName={initial?.dbName}
+      initialDbPort={initial?.dbPort}
+      onComplete={(draft) => {
+        onComplete(draft);
+        exit();
+      }}
+      onCancel={() => exit()}
+    />
+  );
+}
+
+async function pickTargetForDbAdd(): Promise<string | null> {
+  const config = await readConfig();
+  const token = await getToken();
+  if (!config || !token) {
+    process.stderr.write(
+      "Keine Warpgate-Konfiguration. Bitte zuerst `warpgate-cli login` ausführen.\n",
+    );
+    process.exit(2);
+  }
+  const targets = await fetchTargets(config.baseUrl, token);
+  const sshTargets = targets.filter((t) => t.kind === "Ssh");
+  if (sshTargets.length === 0) {
+    process.stderr.write("Keine SSH-Targets verfügbar.\n");
+    return null;
+  }
+
+  let chosen: TargetSnapshot | null = null;
+  const instance = render(
+    <TargetPickerApp
+      targets={sshTargets}
+      onPick={(t) => {
+        chosen = t;
+      }}
+    />,
+    RENDER_OPTS,
+  );
+  await instance.waitUntilExit();
+  return chosen ? (chosen as TargetSnapshot).name : null;
+}
+
+function TargetPickerApp({
+  targets,
+  onPick,
+}: {
+  targets: TargetSnapshot[];
+  onPick: (t: TargetSnapshot) => void;
+}) {
+  const { exit } = useApp();
+  return (
+    <Picker
+      targets={targets}
+      databasesByTarget={new Map()}
+      onSelectSsh={(t) => {
+        onPick(t);
+        exit();
+      }}
+      onSelectDb={() => {
+        // not reachable: empty databasesByTarget means submenu is empty
+      }}
+      onAddDb={async () => {
+        // ignored in target-picker mode
+      }}
+      onDeleteDb={async () => {
+        // ignored
+      }}
+      onCancel={() => exit()}
+    />
+  );
+}
+
 type PickerResult =
-  | { kind: "selected"; target: TargetSnapshot; info: Info }
+  | { kind: "ssh"; target: TargetSnapshot; info: Info }
+  | { kind: "db"; target: TargetSnapshot; db: DatabaseEntry; info: Info }
   | { kind: "auth-error" }
   | { kind: "fetch-error"; message: string };
 
@@ -347,6 +674,16 @@ function OnboardingApp({
   );
 }
 
+function buildDbMap(entries: DatabaseEntry[]): Map<string, DatabaseEntry[]> {
+  const map = new Map<string, DatabaseEntry[]>();
+  for (const e of entries) {
+    const arr = map.get(e.targetName) ?? [];
+    arr.push(e);
+    map.set(e.targetName, arr);
+  }
+  return map;
+}
+
 function PickerApp({
   baseUrl,
   token,
@@ -361,14 +698,20 @@ function PickerApp({
     | { kind: "loading" }
     | { kind: "ready"; info: Info; targets: TargetSnapshot[] }
   >({ kind: "loading" });
+  const [databases, setDatabases] = useState<DatabaseEntry[]>([]);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([fetchInfo(baseUrl, token), fetchTargets(baseUrl, token)]).then(
-      ([info, all]) => {
+    Promise.all([
+      fetchInfo(baseUrl, token),
+      fetchTargets(baseUrl, token),
+      readDatabases(),
+    ]).then(
+      ([info, all, dbs]) => {
         if (cancelled) return;
         const sshTargets = all.filter((t) => t.kind === "Ssh");
         setState({ kind: "ready", info, targets: sshTargets });
+        setDatabases(dbs);
       },
       (e) => {
         if (cancelled) return;
@@ -399,12 +742,39 @@ function PickerApp({
     );
   }
 
+  const dbMap = buildDbMap(databases);
+
   return (
     <Picker
       targets={state.targets}
-      onSelect={(target) => {
-        onResult({ kind: "selected", target, info: state.info });
+      databasesByTarget={dbMap}
+      onSelectSsh={(target) => {
+        onResult({ kind: "ssh", target, info: state.info });
         exit();
+      }}
+      onSelectDb={(target, db) => {
+        onResult({ kind: "db", target, db, info: state.info });
+        exit();
+      }}
+      onAddDb={async (target, draft) => {
+        await addDatabase(
+          {
+            targetName: target.name,
+            label: draft.label,
+            dbHost: draft.dbHost,
+            dbUser: draft.dbUser,
+            dbName: draft.dbName,
+            ...(draft.dbPort !== undefined ? { dbPort: draft.dbPort } : {}),
+          },
+          draft.password,
+        );
+        const fresh = await readDatabases();
+        setDatabases(fresh);
+      }}
+      onDeleteDb={async (db) => {
+        await removeDatabase(db.id);
+        const fresh = await readDatabases();
+        setDatabases(fresh);
       }}
       onCancel={() => exit()}
     />

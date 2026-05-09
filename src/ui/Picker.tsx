@@ -2,11 +2,27 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { scoreTarget } from "../fuzzy.ts";
 import { inkColorFor } from "../colors.ts";
-import type { BootstrapColor, TargetSnapshot } from "../types.ts";
+import { DbSubmenu } from "./DbSubmenu.tsx";
+import { DbWizard } from "./DbWizard.tsx";
+import type { BootstrapColor, DatabaseEntry, TargetSnapshot } from "../types.ts";
 
-interface PickerProps {
+export interface PickerProps {
   targets: TargetSnapshot[];
-  onSelect: (target: TargetSnapshot) => void;
+  databasesByTarget: Map<string, DatabaseEntry[]>;
+  onSelectSsh: (target: TargetSnapshot) => void;
+  onSelectDb: (target: TargetSnapshot, db: DatabaseEntry) => void;
+  onAddDb: (
+    target: TargetSnapshot,
+    draft: {
+      label: string;
+      dbHost: string;
+      dbUser: string;
+      dbName: string;
+      dbPort?: number;
+      password: string;
+    },
+  ) => Promise<void>;
+  onDeleteDb: (db: DatabaseEntry) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -14,10 +30,80 @@ type Row =
   | { type: "header"; groupName: string; color?: BootstrapColor }
   | { type: "item"; target: TargetSnapshot; groupColor?: BootstrapColor };
 
+type View =
+  | { kind: "main" }
+  | { kind: "submenu"; target: TargetSnapshot }
+  | { kind: "wizard"; target: TargetSnapshot };
+
 const UNGROUPED_KEY = "__ungrouped__";
 const UNGROUPED_LABEL = "Ungruppiert";
 
-export function Picker({ targets, onSelect, onCancel }: PickerProps) {
+export function Picker({
+  targets,
+  databasesByTarget,
+  onSelectSsh,
+  onSelectDb,
+  onAddDb,
+  onDeleteDb,
+  onCancel,
+}: PickerProps) {
+  const [view, setView] = useState<View>({ kind: "main" });
+
+  if (view.kind === "submenu") {
+    const dbs = databasesByTarget.get(view.target.name) ?? [];
+    return (
+      <DbSubmenu
+        target={view.target}
+        databases={dbs}
+        onPick={(db) => onSelectDb(view.target, db)}
+        onAddNew={() => setView({ kind: "wizard", target: view.target })}
+        onCancel={() => setView({ kind: "main" })}
+        onDelete={async (db) => {
+          await onDeleteDb(db);
+        }}
+      />
+    );
+  }
+
+  if (view.kind === "wizard") {
+    return (
+      <DbWizard
+        targetName={view.target.name}
+        onComplete={async (draft) => {
+          await onAddDb(view.target, draft);
+          setView({ kind: "submenu", target: view.target });
+        }}
+        onCancel={() => setView({ kind: "submenu", target: view.target })}
+      />
+    );
+  }
+
+  return (
+    <MainPicker
+      targets={targets}
+      databasesByTarget={databasesByTarget}
+      onSelectSsh={onSelectSsh}
+      onOpenSubmenu={(target) => setView({ kind: "submenu", target })}
+      onCancel={onCancel}
+    />
+  );
+}
+
+interface MainPickerProps {
+  targets: TargetSnapshot[];
+  databasesByTarget: Map<string, DatabaseEntry[]>;
+  onSelectSsh: (target: TargetSnapshot) => void;
+  onOpenSubmenu: (target: TargetSnapshot) => void;
+  onCancel: () => void;
+}
+
+function MainPicker({
+  targets,
+  databasesByTarget,
+  onSelectSsh,
+  onOpenSubmenu,
+  onCancel,
+}: MainPickerProps) {
   const [query, setQuery] = useState("");
   const [selectedItemIdx, setSelectedItemIdx] = useState(0);
 
@@ -73,6 +159,10 @@ export function Picker({ targets, onSelect, onCancel }: PickerProps) {
   const itemCount = itemRowIndices.length;
   const cappedItemIdx = itemCount > 0 ? Math.min(selectedItemIdx, itemCount - 1) : -1;
   const selectedRowIdx = cappedItemIdx >= 0 ? itemRowIndices[cappedItemIdx]! : -1;
+  const selectedTarget =
+    selectedRowIdx >= 0 && rows[selectedRowIdx]?.type === "item"
+      ? (rows[selectedRowIdx] as { type: "item"; target: TargetSnapshot }).target
+      : null;
 
   useInput((input, key) => {
     if (key.escape) {
@@ -91,11 +181,12 @@ export function Picker({ targets, onSelect, onCancel }: PickerProps) {
       setSelectedItemIdx((i) => Math.min(itemCount - 1, i + 1));
       return;
     }
+    if (key.tab || key.rightArrow) {
+      if (selectedTarget) onOpenSubmenu(selectedTarget);
+      return;
+    }
     if (key.return) {
-      if (cappedItemIdx >= 0) {
-        const row = rows[selectedRowIdx];
-        if (row && row.type === "item") onSelect(row.target);
-      }
+      if (selectedTarget) onSelectSsh(selectedTarget);
       return;
     }
     if (key.backspace || key.delete) {
@@ -138,7 +229,7 @@ export function Picker({ targets, onSelect, onCancel }: PickerProps) {
       </Box>
       <Box>
         <Text color="gray">
-          {itemCount} Target{itemCount === 1 ? "" : "s"} · ↑↓ navigieren · Enter verbinden · Esc abbrechen
+          {itemCount} Target{itemCount === 1 ? "" : "s"} · ↑↓ navigieren · Enter SSH · Tab Datenbanken · Esc abbrechen
         </Text>
       </Box>
 
@@ -148,7 +239,18 @@ export function Picker({ targets, onSelect, onCancel }: PickerProps) {
         ) : (
           visibleRows.map((row, i) => {
             const absIdx = windowStart + i;
-            return <RowView key={absIdx} row={row} selected={absIdx === selectedRowIdx} />;
+            const dbCount =
+              row.type === "item"
+                ? (databasesByTarget.get(row.target.name)?.length ?? 0)
+                : 0;
+            return (
+              <RowView
+                key={absIdx}
+                row={row}
+                selected={absIdx === selectedRowIdx}
+                dbCount={dbCount}
+              />
+            );
           })
         )}
       </Box>
@@ -162,7 +264,15 @@ export function Picker({ targets, onSelect, onCancel }: PickerProps) {
   );
 }
 
-function RowView({ row, selected }: { row: Row; selected: boolean }) {
+function RowView({
+  row,
+  selected,
+  dbCount,
+}: {
+  row: Row;
+  selected: boolean;
+  dbCount: number;
+}) {
   if (row.type === "header") {
     return (
       <Box>
@@ -183,6 +293,9 @@ function RowView({ row, selected }: { row: Row; selected: boolean }) {
       </Text>
       {t.description && (
         <Text color="gray">{"  " + t.description}</Text>
+      )}
+      {dbCount > 0 && (
+        <Text color="gray">{"  🗄 " + dbCount}</Text>
       )}
     </Box>
   );

@@ -23,7 +23,7 @@ export function buildSshConnection(
   const username = info.username ?? config.username;
   if (!username) {
     throw new SshSetupError(
-      "Username konnte nicht ermittelt werden. Setze ihn mit: warpgate-cli user <dein-username>",
+      "Username konnte nicht ermittelt werden. Setze ihn mit: warpgate-cli user <username>",
     );
   }
 

@@ -48,3 +48,14 @@ export interface Info {
   external_host?: string;
   external_hosts?: ExternalHostsInfo;
 }
+
+export interface DatabaseEntry {
+  id: string;
+  targetName: string;
+  label: string;
+  dbHost: string;
+  dbUser: string;
+  dbName: string;
+  dbPort?: number;
+  createdAt: string;
+}
