@@ -2,6 +2,7 @@
   "name": "warpgate-cli",
   "version": "0.1.1",
   "description": "Quick-access terminal picker for Warpgate SSH targets.",
+  "url": "https://github.com/schmidfelix/warpgate-cli",
   "type": "module",
   "license": "MIT",
   "bin": {
