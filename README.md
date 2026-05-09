@@ -4,8 +4,7 @@
 
 `warpgate-cli` removes the need to look up target names in the Warpgate Web UI and manually type `ssh user:target@host -p port`. Press a key, search, hit Enter, and start the SSH session.
 
-<!-- TODO: Add demo GIF / screencast here -->
-<!-- ![Demo](docs/demo.gif) -->
+![warpgate-cli picker](docs/picker.png)
 
 ## Features
 
@@ -15,9 +14,6 @@
 - First-run onboarding flow
 - Shell wrapper for zsh, bash, and fish so SSH runs as a direct child process of your shell
 - Database connections over SSH tunnels: open MySQL/MariaDB connections for a target in TablePlus from the picker
-
-<!-- TODO: Add picker screenshot here -->
-<!-- ![Picker](docs/picker.png) -->
 
 ## Requirements
 
@@ -115,8 +111,7 @@ warpgate-cli user alice
 
 MySQL and MariaDB databases that are only reachable from an SSH target, such as an internal DNS name or `localhost`, can be attached to that target and opened in TablePlus. TablePlus creates the SSH tunnel through Warpgate and resolves the database host on the remote side.
 
-<!-- TODO: Add database submenu screenshot here -->
-<!-- ![Database submenu](docs/db-submenu.png) -->
+![warpgate-cli database submenu](docs/db-submenu.png)
 
 ### Add A Database
 
